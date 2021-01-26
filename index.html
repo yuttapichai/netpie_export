@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>NETPIE data store export to JSON file</title>
+    <meta charset="UTF-8">
+    <meta name="description" content="NETPIE data store export to JSON file">
+    <meta name="author" content="Yuttapichai Leelai">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW"
+        crossorigin="anonymous"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"
+        integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+        <script src="FileSaver.min.js"></script>
+
+</head>
+
+<body>
+    <div class="body_">
+        <h2>NETPIE data store export to JSON file</h2>
+        <div class="res" id="result"></div>
+        <div class="row">
+            <input style="width: 300px; margin: 40px 20px 0px 20px;" id="client_id" placeholder="client id"
+                type="text" />
+            <input style="width: 300px; margin: 40px 20px 0px 20px;" id="user_token" placeholder="user token"
+                type="password" />
+        </div>
+        <div class="row">
+            <input style="width: 140px; margin: 10px 20px 0px 20px;" id="start_relative_since" placeholder="since"
+            type="text" />
+            <div class="btn-group" role="group" aria-label="Basic example" style="width: 500px;">
+                <button type="button" class="btn btn-light sel1">hours</button>
+                <button type="button" class="btn btn-light sel1">minutes</button>
+                <button type="button" class="btn btn-light sel1">seconds</button>
+              </div>
+
+        </div>
+        <div class="row">
+            <input style="width: 140px; margin: 10px 20px 0px 20px;" id="start_relative_sampling" placeholder="sampling"
+            type="text" />
+            <div class="btn-group" role="group" aria-label="Basic example" style="width: 500px;">
+                <button type="button" class="btn btn-dark sel2">hours</button>
+                <button type="button" class="btn btn-dark sel2">minutes</button>
+                <button type="button" class="btn btn-dark sel2">seconds</button>
+                <button type="button" class="btn btn-dark sel2">milliseconds</button>
+              </div>
+
+        </div>
+
+        <!-- <input style="width: 300px; margin: 20px;" id="start_relative_unit" placeholder="user token" type="password"/> -->
+
+        <!-- <div class="row"><input style="width: 300px; margin: 20px;" id="user_token" placeholder="user token" type="password"/></div> -->
+
+        <button style="min-width: 200px; margin-top: 20px;" id="submitButton" class="btn btn-warning">Export JSON</button>
+    </div>
+</body>
+<style>
+    .body_ {
+        display: block;
+        align-items: center;
+        text-align: center;
+        margin-top: 60px;
+    }
+
+    .res {
+        width: 60%;
+        color: rgb(236, 223, 207);
+        background-color: rgb(15, 31, 48);
+        margin-left: auto;
+        margin-right: auto;
+        border-radius: 20px;
+    }
+
+    .row {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .active {
+        background-color: rgba(69, 174, 43, 0.7) !important;
+    }
+    .active1 {
+        background-color: rgba(174, 43, 71, 0.7) !important;
+    }
+</style>
+<script>
+    
+    function ConvertToCSV(objArray) {
+        var array = typeof objArray != 'object' ? JSON.parse(objArray) : objArray;
+        var str = '';
+
+        for (var i = 0; i < array.length; i++) {
+            var line = '';
+            for (var index in array[i]) {
+                if (line != '') line += ','
+
+                line += array[i][index];
+            }
+
+            str += line + '\r\n';
+        }
+
+        return str;
+    }
+    var since_unit = null;
+    var sampling_unit = null;
+    $(".btn-group > button.sel1").on("click", function(){
+        since_unit = this.innerHTML;
+        $("button.sel1").removeClass("active");
+        $(this).addClass("active");
+        // alert("Value is " + since_unit);
+    });
+    $(".btn-group > button.sel2").on("click", function(){
+        sampling_unit = this.innerHTML;
+        $("button.sel2").removeClass("active1");
+        $(this).addClass("active1");
+        // alert("Value is " + sampling_unit);
+    });
+    $('#submitButton').on('click', function () {
+        if(since_unit == null && sampling_unit == null){return 0}
+        var d = new Date();
+        $.ajax({
+            url: 'https://api.netpie.io/v2/feed/api/v1/datapoints/query',
+            type: 'POST',
+            contentType: 'JSON',
+            crossDomain: true,
+            async: false,
+            timeout: 15000,
+            beforeSend: function (xhr) {
+                xhr.setRequestHeader("Authorization", "Bearer " + $('#user_token').val());
+                xhr.setRequestHeader("Content-Type", "application/json");
+            },
+            data:
+                JSON.stringify({
+                    "start_relative": {
+                        "value": $('#start_relative_since').val(),
+                        "unit": since_unit
+                    },
+                    "metrics": [{
+                        "name": $('#client_id').val(),
+                        "tags": {
+                            "attr": []
+                        },
+                        "limit": 50,
+                        "group_by": [{
+                            "name": "tag",
+                            "tags": ["attr"]
+                        }],
+                        "aggregators": [{
+                            "name": "avg",
+                            "sampling": {
+                                "value": $('#start_relative_sampling').val(),
+                                "unit": sampling_unit
+                            }
+                        }]
+                    }]
+                })
+            ,
+
+            success: function (res) {
+                $('#result').html('<p style="padding:15px;">' + JSON.stringify(res) + "</p>");
+                var blob = new Blob([JSON.stringify(res)], { type: "text/plain;charset=utf-8" });
+                saveAs(blob, "data_store_netpie_"+d.getFullYear()+d.getMonth()+d.getDate()+("0" + d.getHours()).slice(-2)+("0" + d.getMinutes()).slice(-2)+".json");
+                console.log(res);
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                if (jqXHR['status'] < 100) {
+                    $('#result').html('<div class="alert alert-danger" role="alert">Error</div>');
+                } else {
+                    $('#result').html('<div class="alert alert-danger" role="alert">Error server status code: ' + JSON.stringify(jqXHR['status']) + "</div>");
+                }
+
+            }
+        })
+    });
+</script>
+
+</html>
